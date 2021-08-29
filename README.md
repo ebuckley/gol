@@ -22,7 +22,10 @@
 ```
 
 
-Inspired by https://github.com/bytbox/kakapo
+Inspired by:
+
+- https://github.com/bytbox/kakapo
+- http://norvig.com/lispy.html / http://norvig.com/lispy2.html
 
 Goals:
 
