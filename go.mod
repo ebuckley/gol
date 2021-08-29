@@ -1,1 +1,1 @@
-module "ersin.nz/gol"
+module "github.com/ebuckley/gol"

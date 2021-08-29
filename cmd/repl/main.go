@@ -2,7 +2,7 @@ package main
 
 import (
 	"bufio"
-	"ersin.nz/gol/lisp"
+	"github.com/ebuckley/gol"
 	"fmt"
 	"os"
 )
@@ -18,13 +18,8 @@ func main() {
 			break
 		}
 		line := scanner.Text()
-		l := lisp.NewLexer(line)
-		node, err := lisp.NewASTFromLex(l)
-		if err != nil {
-			fmt.Printf("Parsing Error:\n%s\n", err.Error())
-			continue
-		}
-		r, err := lisp.Eval(node, lisp.DefaultScope())
+
+		r, err := lisp.EvalString(line, lisp.DefaultScope())
 		if err != nil {
 			fmt.Printf("Evaluation Error:\n%s\n", err.Error())
 			continue
