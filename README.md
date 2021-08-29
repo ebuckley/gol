@@ -2,7 +2,8 @@
 
 
 ```go
-    scanner := bufio.NewScanner(os.Stdin)
+    // create a REPL program in go
+	scanner := bufio.NewScanner(os.Stdin)
 	for  {
 		fmt.Print(PROMPT)
 		scanned := scanner.Scan()
@@ -10,13 +11,8 @@
 			break
 		}
 		line := scanner.Text()
-		l := lisp.NewLexer(line)
-		node, err := lisp.NewASTFromLex(l)
-		if err != nil {
-			fmt.Printf("Parsing Error:\n%s\n", err.Error())
-			continue
-		}
-		r, err := lisp.Eval(node, lisp.DefaultScope())
+
+		r, err := lisp.EvalString(line, lisp.DefaultScope())
 		if err != nil {
 			fmt.Printf("Evaluation Error:\n%s\n", err.Error())
 			continue
