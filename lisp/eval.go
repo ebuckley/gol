@@ -7,7 +7,7 @@ import (
 
 
 
-var Environment = map[string]Node {
+var Environment = map[string]Node{
 	"*": Callable(func(node ...Node) (Node, error) {
 		lhs, lOk := node[0].FloatLiteral()
 		rhs, rOk := node[1].FloatLiteral()
@@ -19,33 +19,80 @@ var Environment = map[string]Node {
 		}
 		res := lhs * rhs
 		return FloatAtom{
-			Atom:  Atom{ Token: Token{
-				Type: SYMBOL, Literal: fmt.Sprint(res)}},
-			Value: lhs * rhs,
+			Atom:  Atom{Token: Token{Type: SYMBOL, Literal: fmt.Sprint(res)}},
+			Value: res,
 		}, nil
 	}),
 	"+": Callable(func(node ...Node) (Node, error) {
-
-
 		var currVal float64 = 0
 		for _, n := range node {
-			currFloat, anyIsFloat := n.(FloatAtom)
-			if anyIsFloat {
-				currVal += currFloat.Value
-			}
-			num, isInt := n.(IntAtom)
-			if isInt {
-				currVal += float64(num.Value)
+			if f, ok := n.(FloatAtom); ok {
+				currVal += f.Value
+			} else if i, ok := n.(IntAtom); ok {
+				currVal += float64(i.Value)
 			}
 		}
-		resultAtom := FloatAtom{
-			Atom:  Atom{ Token: Token{
-				Type:    SYMBOL,
-				Literal: fmt.Sprint(currVal),
-			} },
+		return FloatAtom{
+			Atom:  Atom{Token: Token{Type: SYMBOL, Literal: fmt.Sprint(currVal)}},
 			Value: currVal,
+		}, nil
+	}),
+	"-": Callable(func(node ...Node) (Node, error) {
+		if len(node) == 0 {
+			return nil, errors.New("-: requires at least one argument")
 		}
-		return resultAtom, nil
+		first, ok := node[0].FloatLiteral()
+		if !ok {
+			return nil, errors.New("Could not find float value for: " + node[0].TokenLiteral())
+		}
+		if len(node) == 1 {
+			return FloatAtom{Atom: Atom{Token: Token{Type: SYMBOL, Literal: fmt.Sprint(-first)}}, Value: -first}, nil
+		}
+		result := first
+		for _, n := range node[1:] {
+			v, ok := n.FloatLiteral()
+			if !ok {
+				return nil, errors.New("Could not find float value for: " + n.TokenLiteral())
+			}
+			result -= v
+		}
+		return FloatAtom{Atom: Atom{Token: Token{Type: SYMBOL, Literal: fmt.Sprint(result)}}, Value: result}, nil
+	}),
+	"<": Callable(func(node ...Node) (Node, error) {
+		lhs, lOk := node[0].FloatLiteral()
+		rhs, rOk := node[1].FloatLiteral()
+		if !lOk || !rOk {
+			return nil, errors.New("<: arguments must be numeric")
+		}
+		v := lhs < rhs
+		return BoolAtom{Atom: Atom{Token: Token{Type: SYMBOL, Literal: fmt.Sprint(v)}}, Value: v}, nil
+	}),
+	">": Callable(func(node ...Node) (Node, error) {
+		lhs, lOk := node[0].FloatLiteral()
+		rhs, rOk := node[1].FloatLiteral()
+		if !lOk || !rOk {
+			return nil, errors.New(">: arguments must be numeric")
+		}
+		v := lhs > rhs
+		return BoolAtom{Atom: Atom{Token: Token{Type: SYMBOL, Literal: fmt.Sprint(v)}}, Value: v}, nil
+	}),
+	"=": Callable(func(node ...Node) (Node, error) {
+		lhs, lOk := node[0].FloatLiteral()
+		rhs, rOk := node[1].FloatLiteral()
+		if !lOk || !rOk {
+			return nil, errors.New("=: arguments must be numeric")
+		}
+		v := lhs == rhs
+		return BoolAtom{Atom: Atom{Token: Token{Type: SYMBOL, Literal: fmt.Sprint(v)}}, Value: v}, nil
+	}),
+	"println": Callable(func(node ...Node) (Node, error) {
+		for _, n := range node {
+			fmt.Println(n.TokenLiteral())
+		}
+		if len(node) > 0 {
+			return node[len(node)-1], nil
+		}
+		return BoolAtom{Atom: Atom{Token: Token{Type: SYMBOL, Literal: "nil"}}}, nil
 	}),
 }
 
@@ -177,4 +224,21 @@ func EvalString(code string, scope *Scope) (Node, error) {
 		return node, fmt.Errorf("AST parser error: %v", err.Error())
 	}
 	return Eval(node, scope)
+}
+
+// EvalProgram evaluates multiple top-level forms and returns the last result.
+func EvalProgram(code string, scope *Scope) (Node, error) {
+	l := NewLexer(code)
+	nodes, err := AllASTFromLex(l)
+	if err != nil {
+		return nil, fmt.Errorf("parse error: %v", err)
+	}
+	var result Node
+	for _, node := range nodes {
+		result, err = Eval(node, scope)
+		if err != nil {
+			return result, err
+		}
+	}
+	return result, nil
 }

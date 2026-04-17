@@ -180,9 +180,32 @@ func NewASTFromLex(lexer *Lexer) (Node, error) {
 		tok := lexer.NextToken()
 		tokens = append(tokens, tok)
 		if tok.Type == EOF {
-			break;
+			break
 		}
 	}
 	node, _, err := recursiveReadAST(tokens[0], tokens[1:])
 	return node, err
+}
+
+// AllASTFromLex parses all top-level forms from the lexer.
+func AllASTFromLex(lexer *Lexer) ([]Node, error) {
+	tokens := make([]Token, 0)
+	for {
+		tok := lexer.NextToken()
+		if tok.Type == EOF {
+			break
+		}
+		tokens = append(tokens, tok)
+	}
+	var nodes []Node
+	remaining := tokens
+	for len(remaining) > 0 {
+		node, rest, err := recursiveReadAST(remaining[0], remaining[1:])
+		if err != nil {
+			return nil, err
+		}
+		nodes = append(nodes, node)
+		remaining = rest
+	}
+	return nodes, nil
 }
