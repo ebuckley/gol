@@ -2,7 +2,7 @@ package main
 
 import (
 	"bufio"
-	"github.com/ebuckley/gol"
+	"github.com/ebuckley/gol/lisp"
 	"fmt"
 	"os"
 )
