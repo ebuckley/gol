@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"hmt"
+	"github.com/ebuckley/hmt"
 )
 
 // HashMapNode wraps an immutable hmt.HMT as a lisp Node.
