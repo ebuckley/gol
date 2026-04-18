@@ -92,6 +92,14 @@ func TestImportForm(t *testing.T) {
 	}
 }
 
+func TestImportUnknownPackage(t *testing.T) {
+	ds := DefaultScope()
+	_, err := EvalString(`(import no-such-package)`, ds)
+	if err == nil {
+		t.Fatal("expected error for unknown package")
+	}
+}
+
 func TestGetAndCallMethod(t *testing.T) {
 	ds := DefaultScope()
 	p := testPerson{Name: "Carol", Age: 20}

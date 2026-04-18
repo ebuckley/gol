@@ -111,7 +111,7 @@ func TestDestructuringErrorHandling(t *testing.T) {
 	ds := DefaultScope()
 	ds.Set("maybe-double", GoFunc(failFn))
 
-	// success path: err should be nil
+	// success path: val=10, err=nil
 	res, err := EvalString(`(do (:= (val err) (maybe-double 5)) val)`, ds)
 	if err != nil {
 		t.Fatal(err)
@@ -119,6 +119,32 @@ func TestDestructuringErrorHandling(t *testing.T) {
 	i, ok := res.IntLiteral()
 	if !ok || i != 10 {
 		t.Fatalf("expected 10, got %v", res)
+	}
+
+	// error path: err is a non-nil string, val=0
+	res, err = EvalString(`(do (:= (val err) (maybe-double -3)) err)`, ds)
+	if err != nil {
+		t.Fatal(err)
+	}
+	errStr, ok := res.(StringAtom)
+	if !ok || errStr.Value != "negative" {
+		t.Fatalf("expected error string 'negative', got %T %v", res, res)
+	}
+}
+
+func TestDestructuringNilPadding(t *testing.T) {
+	// when the list has fewer values than names, extras get nil
+	single := func() int64 { return 42 }
+	ds := DefaultScope()
+	ds.Set("single", GoFunc(single))
+
+	res, err := EvalString(`(do (:= (a b c) (single)) b)`, ds)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, ok := res.(BoolAtom)
+	if !ok || b.Value != false || b.TokenLiteral() != "nil" {
+		t.Fatalf("expected nil padding for b, got %T %v", res, res)
 	}
 }
 

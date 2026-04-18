@@ -129,6 +129,7 @@ func TestGoFuncMultiReturn(t *testing.T) {
 func TestSliceRoundtrip(t *testing.T) {
 	ds := DefaultScope()
 	ds.Set("split", GoFunc(strings.Split))
+	ds.Set("join", GoFunc(strings.Join))
 
 	res, err := EvalString(`(split "a,b,c" ",")`, ds)
 	if err != nil {
@@ -137,6 +138,37 @@ func TestSliceRoundtrip(t *testing.T) {
 	list, ok := res.(List)
 	if !ok || len(list.Nodes) != 3 {
 		t.Fatalf("expected List of 3, got %T %v", res, res)
+	}
+	for i, want := range []string{"a", "b", "c"} {
+		s, ok := list.Nodes[i].(StringAtom)
+		if !ok || s.Value != want {
+			t.Fatalf("elem %d: expected %q, got %T %v", i, want, list.Nodes[i], list.Nodes[i])
+		}
+	}
+
+	// round-trip: split then join
+	res2, err := EvalString(`(join (split "x-y-z" "-") "+")`, ds)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s, ok := res2.(StringAtom)
+	if !ok || s.Value != "x+y+z" {
+		t.Fatalf("expected 'x+y+z', got %T %v", res2, res2)
+	}
+}
+
+func TestVariadicZeroExtraArgs(t *testing.T) {
+	ds := DefaultScope()
+	ds.Set("sprintf", GoFunc(fmt.Sprintf))
+
+	// no variadic args — just the format string
+	res, err := EvalString(`(sprintf "hello")`, ds)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s, ok := res.(StringAtom)
+	if !ok || s.Value != "hello" {
+		t.Fatalf("expected 'hello', got %T %v", res, res)
 	}
 }
 
