@@ -1,6 +1,9 @@
 package lisp
 
-import "testing"
+import (
+	"fmt"
+	"testing"
+)
 
 func TestSimple(t *testing.T) {
 	simpleCode := `(+ 1 2)`
@@ -80,6 +83,42 @@ func TestStringAtom(t *testing.T) {
 	b, ok = res.(BoolAtom)
 	if !ok || b.Value {
 		t.Fatal("expected string inequality to return false")
+	}
+}
+
+func TestDestructuringAssign(t *testing.T) {
+	divide := func(a, b int64) (int64, int64) { return a / b, a % b }
+	ds := DefaultScope()
+	ds.Set("divmod", GoFunc(divide))
+
+	res, err := EvalString(`(do (:= (q r) (divmod 10 3)) q)`, ds)
+	if err != nil {
+		t.Fatal(err)
+	}
+	i, ok := res.IntLiteral()
+	if !ok || i != 3 {
+		t.Fatalf("expected quotient 3, got %v", res)
+	}
+}
+
+func TestDestructuringErrorHandling(t *testing.T) {
+	failFn := func(x int64) (int64, error) {
+		if x < 0 {
+			return 0, fmt.Errorf("negative")
+		}
+		return x * 2, nil
+	}
+	ds := DefaultScope()
+	ds.Set("maybe-double", GoFunc(failFn))
+
+	// success path: err should be nil
+	res, err := EvalString(`(do (:= (val err) (maybe-double 5)) val)`, ds)
+	if err != nil {
+		t.Fatal(err)
+	}
+	i, ok := res.IntLiteral()
+	if !ok || i != 10 {
+		t.Fatalf("expected 10, got %v", res)
 	}
 }
 

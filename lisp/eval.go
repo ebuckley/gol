@@ -187,16 +187,33 @@ func Eval(n Node, scope *Scope) (Node, error) {
 				}
 			}
 		} else if fst.TokenLiteral() == ":=" {
-
-			name, isSymbol := L.Nodes[1].(SymbolAtom)
-			if !isSymbol {
-				return nil, errors.New("error with special form := " +  L.TokenLiteral())
-			}
 			value, err := Eval(L.Nodes[2], scope)
 			if err != nil {
 				return nil, err
 			}
-			// map the first param name to be the value in the current environment
+			// destructuring: (:= (a b ...) expr)
+			if names, ok := L.Nodes[1].(List); ok {
+				vals, isList := value.(List)
+				for i, nameNode := range names.Nodes {
+					sym, isSymbol := nameNode.(SymbolAtom)
+					if !isSymbol {
+						return nil, fmt.Errorf(":= destructure: expected symbol, got %T", nameNode)
+					}
+					var v Node
+					if isList && i < len(vals.Nodes) {
+						v = vals.Nodes[i]
+					} else {
+						v = BoolAtom{Atom: Atom{Token: Token{Type: SYMBOL, Literal: "nil"}}}
+					}
+					scope.Set(sym.TokenLiteral(), v)
+				}
+				return names.Nodes[0], nil
+			}
+			// simple: (:= name expr)
+			name, isSymbol := L.Nodes[1].(SymbolAtom)
+			if !isSymbol {
+				return nil, errors.New("error with special form := " + L.TokenLiteral())
+			}
 			scope.Set(name.TokenLiteral(), value)
 			return name, nil
 		} else if fst.TokenLiteral() == "do" {

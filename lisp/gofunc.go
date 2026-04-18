@@ -9,29 +9,41 @@ import (
 // GoFunc wraps any Go function as a Callable, auto-coercing Node args to Go
 // types and converting return values back to Node.
 func GoFunc(fn any) Callable {
-	rv := reflect.ValueOf(fn)
-	if rv.Kind() != reflect.Func {
+	fv := reflect.ValueOf(fn)
+	if fv.Kind() != reflect.Func {
 		panic("GoFunc: argument must be a function")
 	}
-	ft := rv.Type()
+	ft := fv.Type()
 	name := fmt.Sprintf("%T", fn)
 	return func(args ...Node) (Node, error) {
+		numFixed := ft.NumIn()
 		if ft.IsVariadic() {
-			return nil, fmt.Errorf("%s: variadic functions not supported via GoFunc", name)
-		}
-		if ft.NumIn() != len(args) {
-			return nil, fmt.Errorf("%s: expected %d args, got %d", name, ft.NumIn(), len(args))
+			numFixed--
+			if len(args) < numFixed {
+				return nil, fmt.Errorf("%s: expected at least %d args, got %d", name, numFixed, len(args))
+			}
+		} else if numFixed != len(args) {
+			return nil, fmt.Errorf("%s: expected %d args, got %d", name, numFixed, len(args))
 		}
 		in := make([]reflect.Value, len(args))
-		for i, arg := range args {
-			want := ft.In(i)
-			rv, err := nodeToReflect(arg, want)
+		for i := 0; i < numFixed; i++ {
+			v, err := nodeToReflect(args[i], ft.In(i))
 			if err != nil {
 				return nil, fmt.Errorf("%s arg %d: %w", name, i, err)
 			}
-			in[i] = rv
+			in[i] = v
 		}
-		out := rv.Call(in)
+		if ft.IsVariadic() {
+			elemType := ft.In(ft.NumIn() - 1).Elem()
+			for i := numFixed; i < len(args); i++ {
+				v, err := nodeToReflect(args[i], elemType)
+				if err != nil {
+					return nil, fmt.Errorf("%s arg %d: %w", name, i, err)
+				}
+				in[i] = v
+			}
+		}
+		out := fv.Call(in)
 		return reflectResultToNode(name, out, ft)
 	}
 }

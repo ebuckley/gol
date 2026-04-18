@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 )
 
 type Node interface {
@@ -127,7 +128,16 @@ func NewScope(objects map[string]Node, parent *Scope) *Scope{
 		objects: objects,
 	}
 }
-func (s *Scope) Get(key string) (n Node) {
+func (s *Scope) Get(key string) Node {
+	if idx := strings.IndexByte(key, '/'); idx != -1 {
+		ns, name := key[:idx], key[idx+1:]
+		if nsNode := s.Get(ns); nsNode != nil {
+			if obj, ok := nsNode.(ObjectNode); ok {
+				return obj.Fields[name]
+			}
+		}
+		return nil
+	}
 	n, ok := s.objects[key]
 	if !ok && s.parent != nil {
 		return s.parent.Get(key)
@@ -137,6 +147,12 @@ func (s *Scope) Get(key string) (n Node) {
 
 func (s *Scope) Set(literal string, value Node) {
 	s.objects[literal] = value
+}
+
+// SetNamespace registers a map of name→Node under a namespace key so that
+// symbols like "ns/name" resolve correctly.
+func (s *Scope) SetNamespace(ns string, fns map[string]Node) {
+	s.objects[ns] = ObjectNode{Fields: fns}
 }
 
 // Bind wraps v and sets it in the scope under name.

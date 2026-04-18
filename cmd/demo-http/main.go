@@ -41,13 +41,14 @@ func get(url string) (lisp.ObjectNode, error) {
 const program = `
 (do
   (println "--- simple fetch ---")
-  (:= body (fetch "https://httpbin.org/get"))
-  (println (contains body "httpbin"))
+  (:= (body err) (fetch "https://httpbin.org/get"))
+  (if err (println err) (println (contains body "httpbin")))
 
   (println "--- inspecting response ---")
-  (:= resp (http-get "https://httpbin.org/status/418"))
-  (println (get resp "Status"))
-  (println (get resp "StatusCode")))
+  (:= (resp err2) (http-get "https://httpbin.org/status/418"))
+  (if err2 (println err2) (do
+    (println (get resp "Status"))
+    (println (get resp "StatusCode")))))
 `
 
 func main() {
