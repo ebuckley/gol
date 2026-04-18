@@ -10,6 +10,7 @@ type TokenType string
 
 const (
 	SYMBOL = "SYMBOL"
+	STRING = "STRING"
 	LPAREN = "LPAREN"
 	RPAREN = "RPAREN"
 	ESCAPEFORM = "ESCAPE"

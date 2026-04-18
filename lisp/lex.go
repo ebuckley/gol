@@ -67,38 +67,52 @@ func (l *Lexer) readSymbol() string {
 	return newSymbol
 }
 
+func (l *Lexer) readString() string {
+	var s string
+	for {
+		l.readRune()
+		if l.ch == '"' || l.ch == 0 {
+			break
+		}
+		if l.ch == '\\' {
+			l.readRune()
+			switch l.ch {
+			case 'n':
+				s += "\n"
+			case 't':
+				s += "\t"
+			case '"':
+				s += "\""
+			case '\\':
+				s += "\\"
+			default:
+				s += string(l.ch)
+			}
+			continue
+		}
+		s += string(l.ch)
+	}
+	return s
+}
+
 func (l *Lexer) NextToken() Token {
 	var tok Token
 	l.chompRunes()
 	switch l.ch {
 	case '(':
-		tok = Token{
-			Type:    LPAREN,
-			Literal: "",
-		}
+		tok = Token{Type: LPAREN, Literal: ""}
 	case ')':
-		tok = Token{
-			Type:    RPAREN,
-			Literal: "",
-		}
-		//TODO case escapeform (for macros :o)
-	//TODO case COMMENTFORM:
-	// ignore the rest and go to the end of the line
+		tok = Token{Type: RPAREN, Literal: ""}
+	case '"':
+		s := l.readString()
+		tok = Token{Type: STRING, Literal: s}
 	case 0:
-		tok = Token{
-			Type:    EOF,
-			Literal: "",
-		}
+		tok = Token{Type: EOF, Literal: ""}
 	default:
-		// TODO: also read numbers, strings, atoms, keywords, builtins etc..
-
-		tok = Token{
-			Type:    SYMBOL,
-			Literal: l.readSymbol(),
-		}
+		tok = Token{Type: SYMBOL, Literal: l.readSymbol()}
 		return tok
 	}
-	l.readRune() // advance the token reader by one
+	l.readRune()
 	return tok
 }
 

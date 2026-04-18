@@ -77,13 +77,37 @@ var Environment = map[string]Node{
 		return BoolAtom{Atom: Atom{Token: Token{Type: SYMBOL, Literal: fmt.Sprint(v)}}, Value: v}, nil
 	}),
 	"=": Callable(func(node ...Node) (Node, error) {
+		ls, lIsStr := node[0].(StringAtom)
+		rs, rIsStr := node[1].(StringAtom)
+		if lIsStr && rIsStr {
+			v := ls.Value == rs.Value
+			return BoolAtom{Atom: Atom{Token: Token{Type: SYMBOL, Literal: fmt.Sprint(v)}}, Value: v}, nil
+		}
 		lhs, lOk := node[0].FloatLiteral()
 		rhs, rOk := node[1].FloatLiteral()
 		if !lOk || !rOk {
-			return nil, errors.New("=: arguments must be numeric")
+			return nil, errors.New("=: arguments must be numeric or string")
 		}
 		v := lhs == rhs
 		return BoolAtom{Atom: Atom{Token: Token{Type: SYMBOL, Literal: fmt.Sprint(v)}}, Value: v}, nil
+	}),
+	"get": Callable(func(node ...Node) (Node, error) {
+		if len(node) != 2 {
+			return nil, errors.New("get: expected (get obj \"Key\")")
+		}
+		obj, ok := node[0].(ObjectNode)
+		if !ok {
+			return nil, errors.New("get: first argument must be an ObjectNode")
+		}
+		key, ok := node[1].(StringAtom)
+		if !ok {
+			return nil, errors.New("get: second argument must be a string key")
+		}
+		val, found := obj.Fields[key.Value]
+		if !found {
+			return nil, fmt.Errorf("get: key %q not found", key.Value)
+		}
+		return val, nil
 	}),
 	"println": Callable(func(node ...Node) (Node, error) {
 		for _, n := range node {
@@ -124,6 +148,18 @@ func Eval(n Node, scope *Scope) (Node, error) {
 
 	if b, isBool := n.(BoolAtom); isBool {
 		return b, nil
+	}
+
+	if s, isStr := n.(StringAtom); isStr {
+		return s, nil
+	}
+
+	if g, isGo := n.(GoValue); isGo {
+		return g, nil
+	}
+
+	if o, isObj := n.(ObjectNode); isObj {
+		return o, nil
 	}
 
 	// Function application happens.

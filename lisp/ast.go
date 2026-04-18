@@ -2,6 +2,7 @@ package lisp
 
 import (
 	"errors"
+	"fmt"
 	"strconv"
 )
 
@@ -66,11 +67,45 @@ type FloatAtom struct {
 	Atom
 	Value float64
 }
+
+type StringAtom struct {
+	Atom
+	Value string
+}
+
+func (a StringAtom) TokenLiteral() string    { return a.Value }
+func (a StringAtom) IntLiteral() (int64, bool)   { return 0, false }
+func (a StringAtom) FloatLiteral() (float64, bool) { return 0, false }
 func (a FloatAtom) IntLiteral() (int64, bool) {
 	return int64(a.Value), true
 }
 func (a FloatAtom) FloatLiteral() (float64, bool) {
 	return a.Value, true
+}
+
+// GoValue wraps an arbitrary Go value as a Node.
+type GoValue struct {
+	Value any
+}
+
+func (g GoValue) TokenLiteral() string     { return fmt.Sprintf("%v", g.Value) }
+func (g GoValue) IntLiteral() (int64, bool)    { return 0, false }
+func (g GoValue) FloatLiteral() (float64, bool) { return 0, false }
+
+// Wrap boxes any Go value as a Node. Nil becomes a BoolAtom with literal "nil".
+func Wrap(v any) Node {
+	if v == nil {
+		return BoolAtom{Atom: Atom{Token: Token{Type: SYMBOL, Literal: "nil"}}}
+	}
+	return GoValue{Value: v}
+}
+
+// Unwrap extracts the underlying Go value from a GoValue node.
+func Unwrap(n Node) (any, bool) {
+	if g, ok := n.(GoValue); ok {
+		return g.Value, true
+	}
+	return nil, false
 }
 
 // Callable represents something that is callable....
@@ -102,6 +137,11 @@ func (s *Scope) Get(key string) (n Node) {
 
 func (s *Scope) Set(literal string, value Node) {
 	s.objects[literal] = value
+}
+
+// Bind wraps v and sets it in the scope under name.
+func (s *Scope) Bind(name string, v any) {
+	s.objects[name] = Wrap(v)
 }
 
 func NewCallable(params List, Body Node, parent *Scope) Callable {
@@ -145,6 +185,9 @@ func recursiveReadAST(first Token, rest []Token) (Node, []Token, error){
 }
 
 func atomFromToken(t Token) (Node, error) {
+	if t.Type == STRING {
+		return StringAtom{Atom: Atom{Token: t}, Value: t.Literal}, nil
+	}
 	intVal, err := strconv.ParseInt(t.Literal, 10, 64)
 	if err != nil {
 		floatVal, ferr := strconv.ParseFloat(t.Literal, 64)

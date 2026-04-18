@@ -49,6 +49,40 @@ func TestAssignmentForm(t *testing.T) {
 	}
 }
 
+func TestStringAtom(t *testing.T) {
+	ds := DefaultScope()
+
+	res, err := EvalString(`"hello"`, ds)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s, ok := res.(StringAtom)
+	if !ok {
+		t.Fatalf("expected StringAtom, got %T", res)
+	}
+	if s.Value != "hello" {
+		t.Fatalf("expected hello, got %q", s.Value)
+	}
+
+	res, err = EvalString(`(= "foo" "foo")`, ds)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, ok := res.(BoolAtom)
+	if !ok || !b.Value {
+		t.Fatal("expected string equality to return true")
+	}
+
+	res, err = EvalString(`(= "foo" "bar")`, ds)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, ok = res.(BoolAtom)
+	if !ok || b.Value {
+		t.Fatal("expected string inequality to return false")
+	}
+}
+
 func TestAssignmentUsage(t *testing.T) {
 	ds := DefaultScope()
 
