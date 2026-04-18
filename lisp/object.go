@@ -11,6 +11,13 @@ type ObjectNode struct {
 	Fields map[string]Node
 }
 
+var (
+	nilNode = BoolAtom{Atom: Atom{Token: Token{Type: SYMBOL, Literal: "nil"}}}
+	errType = reflect.TypeOf((*error)(nil)).Elem()
+	anyType = reflect.TypeOf((*any)(nil)).Elem()
+	nodeType = reflect.TypeOf((*Node)(nil)).Elem()
+)
+
 func (o ObjectNode) TokenLiteral() string     { return fmt.Sprintf("Object%v", o.Fields) }
 func (o ObjectNode) IntLiteral() (int64, bool)    { return 0, false }
 func (o ObjectNode) FloatLiteral() (float64, bool) { return 0, false }
@@ -55,41 +62,47 @@ func WrapObject(v any) (ObjectNode, error) {
 	return ObjectNode{Fields: fields}, nil
 }
 
-// reflectCallable wraps a reflect.Value (must be a Func) as a Callable.
-func reflectCallable(name string, fn reflect.Value) Callable {
-	return func(args ...Node) (Node, error) {
-		ft := fn.Type()
-		numFixed := ft.NumIn()
-		if ft.IsVariadic() {
-			numFixed--
-			if len(args) < numFixed {
-				return nil, fmt.Errorf("%s: expected at least %d args, got %d", name, numFixed, len(args))
-			}
-		} else if numFixed != len(args) {
-			return nil, fmt.Errorf("%s: expected %d args, got %d", name, numFixed, len(args))
+// buildCallArgs validates arg count and coerces Node args to reflect.Values.
+func buildCallArgs(name string, args []Node, ft reflect.Type) ([]reflect.Value, error) {
+	numFixed := ft.NumIn()
+	if ft.IsVariadic() {
+		numFixed--
+		if len(args) < numFixed {
+			return nil, fmt.Errorf("%s: expected at least %d args, got %d", name, numFixed, len(args))
 		}
-
-		in := make([]reflect.Value, len(args))
-		for i := 0; i < numFixed; i++ {
-			v, err := nodeToReflect(args[i], ft.In(i))
+	} else if numFixed != len(args) {
+		return nil, fmt.Errorf("%s: expected %d args, got %d", name, numFixed, len(args))
+	}
+	in := make([]reflect.Value, len(args))
+	for i := 0; i < numFixed; i++ {
+		v, err := nodeToReflect(args[i], ft.In(i))
+		if err != nil {
+			return nil, fmt.Errorf("%s arg %d: %w", name, i, err)
+		}
+		in[i] = v
+	}
+	if ft.IsVariadic() {
+		elemType := ft.In(ft.NumIn() - 1).Elem()
+		for i := numFixed; i < len(args); i++ {
+			v, err := nodeToReflect(args[i], elemType)
 			if err != nil {
 				return nil, fmt.Errorf("%s arg %d: %w", name, i, err)
 			}
 			in[i] = v
 		}
-		if ft.IsVariadic() {
-			elemType := ft.In(ft.NumIn() - 1).Elem()
-			for i := numFixed; i < len(args); i++ {
-				v, err := nodeToReflect(args[i], elemType)
-				if err != nil {
-					return nil, fmt.Errorf("%s arg %d: %w", name, i, err)
-				}
-				in[i] = v
-			}
-		}
+	}
+	return in, nil
+}
 
-		out := fn.Call(in)
-		return reflectResultToNode(name, out, fn.Type())
+// reflectCallable wraps a reflect.Value (must be a Func) as a Callable.
+func reflectCallable(name string, fn reflect.Value) Callable {
+	ft := fn.Type()
+	return func(args ...Node) (Node, error) {
+		in, err := buildCallArgs(name, args, ft)
+		if err != nil {
+			return nil, err
+		}
+		return reflectResultToNode(name, fn.Call(in), ft)
 	}
 }
 
@@ -134,7 +147,7 @@ func nodeToReflect(n Node, target reflect.Type) (reflect.Value, error) {
 			}
 		}
 		// pass any node as interface{}: unwrap to native Go value
-		if target == reflect.TypeOf((*any)(nil)).Elem() {
+		if target == anyType {
 			switch v := n.(type) {
 			case StringAtom:
 				return reflect.ValueOf(v.Value), nil
@@ -164,15 +177,11 @@ func nodeToReflect(n Node, target reflect.Type) (reflect.Value, error) {
 	return reflect.Value{}, fmt.Errorf("cannot coerce %T to %v", n, target)
 }
 
-var nilNode = BoolAtom{Atom: Atom{Token: Token{Type: SYMBOL, Literal: "nil"}}}
-
 // reflectResultToNode converts reflect call output to a Node.
 // When the function signature ends with error, the error is always included as
 // the last element of the returned List (as nil or a StringAtom), so lisp code
 // can destructure (:= (val err) (some-fn ...)) without exceptions.
 func reflectResultToNode(name string, out []reflect.Value, ft reflect.Type) (Node, error) {
-	errType := reflect.TypeOf((*error)(nil)).Elem()
-
 	hasErrReturn := ft.NumOut() > 0 && ft.Out(ft.NumOut()-1).Implements(errType)
 
 	if !hasErrReturn {
@@ -212,12 +221,10 @@ func reflectResultToNode(name string, out []reflect.Value, ft reflect.Type) (Nod
 	return List{Nodes: nodes}, nil
 }
 
-var nodeType = reflect.TypeOf((*Node)(nil)).Elem()
-
 // goValueToNode converts a reflect.Value to the most specific Node type possible.
 func goValueToNode(rv reflect.Value) Node {
 	if !rv.IsValid() {
-		return BoolAtom{Atom: Atom{Token: Token{Type: SYMBOL, Literal: "nil"}}}
+		return nilNode
 	}
 	if rv.Type().Implements(nodeType) {
 		return rv.Interface().(Node)
@@ -243,7 +250,7 @@ func goValueToNode(rv reflect.Value) Node {
 		return obj
 	case reflect.Slice:
 		if rv.IsNil() {
-			return BoolAtom{Atom: Atom{Token: Token{Type: SYMBOL, Literal: "nil"}}}
+			return nilNode
 		}
 		nodes := make([]Node, rv.Len())
 		for i := 0; i < rv.Len(); i++ {
@@ -252,7 +259,7 @@ func goValueToNode(rv reflect.Value) Node {
 		return List{Nodes: nodes}
 	case reflect.Pointer:
 		if rv.IsNil() {
-			return BoolAtom{Atom: Atom{Token: Token{Type: SYMBOL, Literal: "nil"}}}
+			return nilNode
 		}
 		obj, err := WrapObject(rv.Interface())
 		if err != nil {

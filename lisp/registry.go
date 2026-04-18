@@ -22,6 +22,6 @@ func ImportInto(name string, scope *Scope) error {
 	}
 	ns := NewScope(map[string]Node{}, nil)
 	fn(ns)
-	scope.Set(name, ObjectNode{Fields: ns.objects})
+	scope.SetNamespace(name, ns.objects)
 	return nil
 }

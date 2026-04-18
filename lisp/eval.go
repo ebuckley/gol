@@ -203,7 +203,7 @@ func Eval(n Node, scope *Scope) (Node, error) {
 					if isList && i < len(vals.Nodes) {
 						v = vals.Nodes[i]
 					} else {
-						v = BoolAtom{Atom: Atom{Token: Token{Type: SYMBOL, Literal: "nil"}}}
+						v = nilNode
 					}
 					scope.Set(sym.TokenLiteral(), v)
 				}

@@ -16,35 +16,11 @@ func GoFunc(fn any) Callable {
 	ft := fv.Type()
 	name := fmt.Sprintf("%T", fn)
 	return func(args ...Node) (Node, error) {
-		numFixed := ft.NumIn()
-		if ft.IsVariadic() {
-			numFixed--
-			if len(args) < numFixed {
-				return nil, fmt.Errorf("%s: expected at least %d args, got %d", name, numFixed, len(args))
-			}
-		} else if numFixed != len(args) {
-			return nil, fmt.Errorf("%s: expected %d args, got %d", name, numFixed, len(args))
+		in, err := buildCallArgs(name, args, ft)
+		if err != nil {
+			return nil, err
 		}
-		in := make([]reflect.Value, len(args))
-		for i := 0; i < numFixed; i++ {
-			v, err := nodeToReflect(args[i], ft.In(i))
-			if err != nil {
-				return nil, fmt.Errorf("%s arg %d: %w", name, i, err)
-			}
-			in[i] = v
-		}
-		if ft.IsVariadic() {
-			elemType := ft.In(ft.NumIn() - 1).Elem()
-			for i := numFixed; i < len(args); i++ {
-				v, err := nodeToReflect(args[i], elemType)
-				if err != nil {
-					return nil, fmt.Errorf("%s arg %d: %w", name, i, err)
-				}
-				in[i] = v
-			}
-		}
-		out := fv.Call(in)
-		return reflectResultToNode(name, out, ft)
+		return reflectResultToNode(name, fv.Call(in), ft)
 	}
 }
 
@@ -52,7 +28,7 @@ func GoFunc(fn any) Callable {
 // Useful when returning values from hand-written Callables.
 func ToNode(v any) Node {
 	if v == nil {
-		return BoolAtom{Atom: Atom{Token: Token{Type: SYMBOL, Literal: "nil"}}}
+		return nilNode
 	}
 	return goValueToNode(reflect.ValueOf(v))
 }

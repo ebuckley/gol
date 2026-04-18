@@ -96,7 +96,7 @@ func (g GoValue) FloatLiteral() (float64, bool) { return 0, false }
 // Wrap boxes any Go value as a Node. Nil becomes a BoolAtom with literal "nil".
 func Wrap(v any) Node {
 	if v == nil {
-		return BoolAtom{Atom: Atom{Token: Token{Type: SYMBOL, Literal: "nil"}}}
+		return nilNode
 	}
 	return GoValue{Value: v}
 }
