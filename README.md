@@ -280,8 +280,8 @@ lisp.FromNode[T any](n Node) (T, error)
 | `go run ./cmd/demo-strings` | Generated `stdlib/strings` binding via `(import strings)` |
 | `go run ./cmd/demo-store` | Wrapping a mutable `*Store` struct with `WrapObject` |
 | `CGO_ENABLED=0 go run ./cmd/demo-http` | HTTP client with Go-style `(:= (val err) ...)` error handling |
-| `go run ./cmd/repl` | Interactive REPL |
-| `go run ./cmd/interp <file.gol>` | Run a `.gol` file |
+| `go run ./cmd/gol` | Interactive REPL with all stdlib packages pre-loaded |
+| `go run ./cmd/gol <file.gol>` | Run a `.gol` script with all stdlib packages pre-loaded |
 
 Lisp example programs are in `_examples/`.
 
