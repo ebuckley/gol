@@ -148,10 +148,15 @@ func reflectResultToNode(name string, out []reflect.Value, ft reflect.Type) (Nod
 	return goValueToNode(out[0]), nil
 }
 
+var nodeType = reflect.TypeOf((*Node)(nil)).Elem()
+
 // goValueToNode converts a reflect.Value to the most specific Node type possible.
 func goValueToNode(rv reflect.Value) Node {
 	if !rv.IsValid() {
 		return BoolAtom{Atom: Atom{Token: Token{Type: SYMBOL, Literal: "nil"}}}
+	}
+	if rv.Type().Implements(nodeType) {
+		return rv.Interface().(Node)
 	}
 	switch rv.Kind() {
 	case reflect.String:
