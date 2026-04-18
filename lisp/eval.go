@@ -237,6 +237,15 @@ func Eval(n Node, scope *Scope) (Node, error) {
 			return NewCallable(params, body, scope), nil
 		} else if fst.TokenLiteral() == "quote" {
 			return L.Nodes[1], nil
+		} else if fst.TokenLiteral() == "import" {
+			name, ok := L.Nodes[1].(SymbolAtom)
+			if !ok {
+				return nil, fmt.Errorf("import: expected a symbol, got %T", L.Nodes[1])
+			}
+			if err := ImportInto(name.TokenLiteral(), scope); err != nil {
+				return nil, err
+			}
+			return name, nil
 		} else if fst.TokenLiteral() == "set!" {
 			symbol := L.Nodes[1]
 			expr := L.Nodes[2]

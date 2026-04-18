@@ -1,6 +1,9 @@
 package lisp
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 type testPerson struct {
 	Name string
@@ -69,6 +72,23 @@ func TestGetBuiltin(t *testing.T) {
 	s, ok := res.(StringAtom)
 	if !ok || s.Value != "Bob" {
 		t.Fatalf("expected StringAtom Bob, got %T %v", res, res)
+	}
+}
+
+func TestImportForm(t *testing.T) {
+	Register("teststr", func(s *Scope) {
+		s.Set("contains", GoFunc(strings.Contains))
+		s.Set("upper", GoFunc(strings.ToUpper))
+	})
+
+	ds := DefaultScope()
+	res, err := EvalString(`(do (import teststr) (teststr/contains "hello" "ell"))`, ds)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, ok := res.(BoolAtom)
+	if !ok || !b.Value {
+		t.Fatalf("expected true, got %T %v", res, res)
 	}
 }
 
