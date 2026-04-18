@@ -14,11 +14,14 @@ go test ./lisp/...
 # Run a single test
 go test ./lisp/... -run TestSimple
 
-# Build the REPL
-go build ./cmd/repl
+# Build the gol binary
+go build ./cmd/gol
 
 # Run the REPL
-go run ./cmd/replmodule "github.com/ebuckley/gol"
+go run ./cmd/gol
+
+# Run a script
+go run ./cmd/gol <file.gol>
 ```
 
 ## Architecture
